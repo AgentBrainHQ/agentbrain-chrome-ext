@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Brain</title>
+    <style>
+      body {
+        width: 280px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+        margin: 0;
+        padding: 16px;
+        color: #1a1a1a;
+      }
+      h1 {
+        font-size: 14px;
+        margin: 0 0 10px;
+      }
+      .status {
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-size: 12px;
+        margin-bottom: 10px;
+      }
+      .status.ok {
+        background: #e6ffed;
+        color: #065f2c;
+      }
+      .status.warn {
+        background: #fff8e1;
+        color: #7a5200;
+      }
+      .status.err {
+        background: #ffe6e6;
+        color: #8b0000;
+      }
+      button {
+        width: 100%;
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        background: #fff;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      button.primary {
+        background: #1a1a1a;
+        color: #fff;
+        border-color: #1a1a1a;
+      }
+      a {
+        color: #1a1a1a;
+        font-size: 12px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🧠 Brain</h1>
+    <div id="status" class="status warn">Checking config…</div>
+    <div class="row">
+      <button id="open-options" class="primary">Settings</button>
+      <button id="open-site">agentbrain.ch</button>
+    </div>
+    <p style="font-size: 11px; color: #666; margin-top: 12px">
+      Open ChatGPT and click 🧠 Brain below the composer to inject memories.
+    </p>
+    <script src="popup.js"></script>
+  </body>
+</html>

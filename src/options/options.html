@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Brain — Settings</title>
+    <style>
+      body {
+        max-width: 520px;
+        margin: 40px auto;
+        padding: 0 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+        color: #1a1a1a;
+      }
+      h1 {
+        font-size: 20px;
+      }
+      label {
+        display: block;
+        margin-top: 16px;
+        font-size: 13px;
+        font-weight: 500;
+      }
+      input {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        font-size: 13px;
+        margin-top: 4px;
+        box-sizing: border-box;
+      }
+      button {
+        margin-top: 20px;
+        padding: 10px 16px;
+        border-radius: 8px;
+        background: #1a1a1a;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .help {
+        font-size: 12px;
+        color: #666;
+        margin-top: 4px;
+      }
+      #saved {
+        margin-top: 12px;
+        color: #065f2c;
+        font-size: 12px;
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🧠 Brain — Settings</h1>
+    <p class="help">
+      Get your API key and workspace ID from
+      <a href="https://agentbrain.ch/settings" target="_blank" rel="noopener"
+        >agentbrain.ch/settings</a
+      >.
+    </p>
+
+    <label for="apiKey">API Key</label>
+    <input id="apiKey" type="password" placeholder="brain_xxxxxxxxxxxx" />
+
+    <label for="workspaceId">Workspace ID</label>
+    <input id="workspaceId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+
+    <label for="brainUrl">Brain URL (advanced)</label>
+    <input id="brainUrl" placeholder="https://api.agentbrain.ch" />
+    <p class="help">Only change this if you are self-hosting.</p>
+
+    <button id="save">Save</button>
+    <div id="saved">Saved ✓</div>
+
+    <script src="options.js"></script>
+  </body>
+</html>
