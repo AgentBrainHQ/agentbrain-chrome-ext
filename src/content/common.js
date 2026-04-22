@@ -155,6 +155,121 @@ function mountBrainButton(adapter) {
   const observer = new MutationObserver(attempt);
   observer.observe(document.body, { childList: true, subtree: true });
   attempt();
+
+  // Also start auto-save observation once; it piggybacks on keydown/click at the document level
+  brainObserveSubmits(adapter);
+}
+
+// -------------------- Auto-save (Hybrid C) --------------------
+
+// Short window to prevent double-capture when Enter fires AND a Send button click fires.
+let brainLastCaptureAt = 0;
+const BRAIN_CAPTURE_COOLDOWN_MS = 1500;
+
+function brainIsSubmitLikeButton(el) {
+  if (!el || el.nodeType !== 1) return false;
+  const btn = el.closest("button");
+  if (!btn) return false;
+  if (btn.getAttribute("type") === "submit") return true;
+  const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+  const dataTestId = (btn.getAttribute("data-testid") || "").toLowerCase();
+  if (/\b(send|submit|ask|absenden|senden)\b/.test(aria)) return true;
+  if (/send|submit/.test(dataTestId)) return true;
+  return false;
+}
+
+async function brainCaptureAndStore(adapter) {
+  const now = Date.now();
+  if (now - brainLastCaptureAt < BRAIN_CAPTURE_COOLDOWN_MS) return;
+  brainLastCaptureAt = now;
+
+  let cfgResp;
+  try {
+    cfgResp = await chrome.runtime.sendMessage({ type: "brain_config_get" });
+  } catch (_err) {
+    return;
+  }
+  if (!cfgResp || !cfgResp.ok) return;
+  const cfg = cfgResp.data || {};
+  if (!cfg.autoSave) return;
+  if (!cfg.apiKey || !cfg.workspaceId) return;
+
+  const composer = adapter.findComposer();
+  if (!composer) return;
+
+  const prompt = brainStripPreviousInjection(adapter.getPromptText(composer)).trim();
+  if (!prompt || prompt.length < 20) return; // skip very short prompts
+
+  const site = adapter.siteName || "unknown";
+  const content = `[SOURCE:${site}] User prompt:\n${prompt}`;
+
+  let resp;
+  try {
+    resp = await chrome.runtime.sendMessage({
+      type: "brain_store",
+      payload: {
+        content,
+        memoryType: "episodic",
+        sourceTrust: 0.7, // auto-captured prompts are lower trust than manual stores
+        metadata: { source: site, chat_url: location.href, kind: "user_prompt" },
+      },
+    });
+  } catch (_err) {
+    return;
+  }
+
+  if (resp && resp.ok) {
+    brainFlashSavedDot();
+  }
+  // sensitive-content-filtered and API errors are silent — we don't want to alarm users
+  // mid-chat. They can check the popup for a status screen later.
+}
+
+function brainFlashSavedDot() {
+  const btn = document.getElementById(BRAIN_BUTTON_ID);
+  if (!btn) return;
+  let dot = document.getElementById("agentbrain-saved-dot");
+  if (!dot) {
+    dot = document.createElement("span");
+    dot.id = "agentbrain-saved-dot";
+    dot.title = "Saved to Brain";
+    dot.style.cssText =
+      "display:inline-block;width:6px;height:6px;border-radius:50%;background:#22c55e;margin-left:6px;vertical-align:middle;transition:opacity 1.5s ease;opacity:0;";
+    btn.appendChild(dot);
+  }
+  // Force layout flush, then flash
+  void dot.offsetWidth;
+  dot.style.opacity = "1";
+  setTimeout(() => {
+    dot.style.opacity = "0";
+  }, 1500);
+}
+
+function brainObserveSubmits(adapter) {
+  // Enter-without-Shift while focused inside the composer
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key !== "Enter" || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+      const composer = adapter.findComposer();
+      if (!composer) return;
+      const active = document.activeElement;
+      if (active !== composer && !composer.contains(active)) return;
+      // Let the site's own submit handler run, but capture shortly after
+      setTimeout(() => brainCaptureAndStore(adapter), 50);
+    },
+    true,
+  );
+
+  // Send-button click anywhere in the page
+  document.addEventListener(
+    "click",
+    (e) => {
+      if (!brainIsSubmitLikeButton(e.target)) return;
+      setTimeout(() => brainCaptureAndStore(adapter), 50);
+    },
+    true,
+  );
 }
 
 // Expose to site-specific scripts

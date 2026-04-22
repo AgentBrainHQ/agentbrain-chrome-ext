@@ -71,6 +71,16 @@
     <input id="brainUrl" placeholder="https://api.agentbrain.ch" />
     <p class="help">Only change this if you are self-hosting.</p>
 
+    <label style="display:flex;align-items:center;gap:8px;margin-top:20px;cursor:pointer;">
+      <input id="autoSave" type="checkbox" style="width:auto;margin:0;" />
+      <span>Auto-save chats to Brain</span>
+    </label>
+    <p class="help">
+      When on, your prompts and assistant replies get saved to your Brain automatically, so
+      future sessions can recall them. Turn off if you want to trigger saves manually only.
+      Messages that look like passwords, credit cards or API keys are always skipped.
+    </p>
+
     <button id="save">Save</button>
     <div id="saved">Saved ✓</div>
 

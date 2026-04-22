@@ -3,6 +3,7 @@
 
 (() => {
   const adapter = {
+    siteName: "claude",
     findComposer() {
       return (
         document.querySelector('div.ProseMirror[contenteditable="true"]') ||

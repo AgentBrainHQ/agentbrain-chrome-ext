@@ -2,6 +2,7 @@
 
 (() => {
   const adapter = {
+    siteName: "chatgpt",
     findComposer() {
       return (
         document.querySelector("textarea#prompt-textarea") ||

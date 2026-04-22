@@ -3,6 +3,7 @@
 
 (() => {
   const adapter = {
+    siteName: "gemini",
     findComposer() {
       return (
         document.querySelector('rich-textarea div.ql-editor[contenteditable="true"]') ||

@@ -2,6 +2,7 @@
 
 (() => {
   const adapter = {
+    siteName: "perplexity",
     findComposer() {
       return (
         document.querySelector('textarea[placeholder*="Ask"]') ||
