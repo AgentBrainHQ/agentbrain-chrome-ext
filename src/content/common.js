@@ -178,13 +178,19 @@ function brainIsSubmitLikeButton(el) {
   return false;
 }
 
-async function brainCaptureAndStore(adapter) {
+async function brainCaptureAndStore(adapter, capturedText) {
   const now = Date.now();
   if (now - brainLastCaptureAt < BRAIN_CAPTURE_COOLDOWN_MS) {
     console.log("[brain] capture skipped — cooldown");
     return;
   }
   brainLastCaptureAt = now;
+
+  const prompt = brainStripPreviousInjection(capturedText || "").trim();
+  if (!prompt || prompt.length < 20) {
+    console.log("[brain] capture skipped — prompt too short", { length: prompt.length });
+    return;
+  }
 
   let cfgResp;
   try {
@@ -204,18 +210,6 @@ async function brainCaptureAndStore(adapter) {
   }
   if (!cfg.apiKey || !cfg.workspaceId) {
     console.log("[brain] missing apiKey or workspaceId");
-    return;
-  }
-
-  const composer = adapter.findComposer();
-  if (!composer) {
-    console.log("[brain] capture: no composer");
-    return;
-  }
-
-  const prompt = brainStripPreviousInjection(adapter.getPromptText(composer)).trim();
-  if (!prompt || prompt.length < 20) {
-    console.log("[brain] capture skipped — prompt too short", { length: prompt.length });
     return;
   }
 
@@ -270,34 +264,34 @@ function brainFlashSavedDot() {
 function brainObserveSubmits(adapter) {
   console.log(`[brain] observer mounted for ${adapter.siteName || "unknown"}`);
 
-  // Enter-without-Shift while focused inside the composer
+  // Enter-without-Shift while focused inside the composer.
+  // We must capture the prompt text SYNCHRONOUSLY here, because the host app
+  // (e.g. ChatGPT) clears the composer within the same tick as the submit.
   document.addEventListener(
     "keydown",
     (e) => {
       if (e.key !== "Enter" || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
       const composer = adapter.findComposer();
-      if (!composer) {
-        console.log("[brain] Enter hit but no composer found");
-        return;
-      }
+      if (!composer) return;
       const active = document.activeElement;
-      if (active !== composer && !composer.contains(active)) {
-        console.log("[brain] Enter hit but active element is outside composer", { active, composer });
-        return;
-      }
-      console.log("[brain] Enter hit in composer — will capture in 50ms");
-      setTimeout(() => brainCaptureAndStore(adapter), 50);
+      if (active !== composer && !composer.contains(active)) return;
+      const capturedText = adapter.getPromptText(composer);
+      console.log("[brain] Enter hit — captured", capturedText.length, "chars");
+      brainCaptureAndStore(adapter, capturedText);
     },
     true,
   );
 
-  // Send-button click anywhere in the page
+  // Send-button click anywhere in the page.
   document.addEventListener(
     "click",
     (e) => {
       if (!brainIsSubmitLikeButton(e.target)) return;
-      console.log("[brain] submit-like button clicked — will capture in 50ms");
-      setTimeout(() => brainCaptureAndStore(adapter), 50);
+      const composer = adapter.findComposer();
+      if (!composer) return;
+      const capturedText = adapter.getPromptText(composer);
+      console.log("[brain] submit click — captured", capturedText.length, "chars");
+      brainCaptureAndStore(adapter, capturedText);
     },
     true,
   );
