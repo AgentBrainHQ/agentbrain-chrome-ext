@@ -180,28 +180,49 @@ function brainIsSubmitLikeButton(el) {
 
 async function brainCaptureAndStore(adapter) {
   const now = Date.now();
-  if (now - brainLastCaptureAt < BRAIN_CAPTURE_COOLDOWN_MS) return;
+  if (now - brainLastCaptureAt < BRAIN_CAPTURE_COOLDOWN_MS) {
+    console.log("[brain] capture skipped — cooldown");
+    return;
+  }
   brainLastCaptureAt = now;
 
   let cfgResp;
   try {
     cfgResp = await chrome.runtime.sendMessage({ type: "brain_config_get" });
-  } catch (_err) {
+  } catch (err) {
+    console.log("[brain] cfg fetch failed", err);
     return;
   }
-  if (!cfgResp || !cfgResp.ok) return;
+  if (!cfgResp || !cfgResp.ok) {
+    console.log("[brain] cfg fetch not-ok", cfgResp);
+    return;
+  }
   const cfg = cfgResp.data || {};
-  if (!cfg.autoSave) return;
-  if (!cfg.apiKey || !cfg.workspaceId) return;
+  if (!cfg.autoSave) {
+    console.log("[brain] auto-save disabled in options");
+    return;
+  }
+  if (!cfg.apiKey || !cfg.workspaceId) {
+    console.log("[brain] missing apiKey or workspaceId");
+    return;
+  }
 
   const composer = adapter.findComposer();
-  if (!composer) return;
+  if (!composer) {
+    console.log("[brain] capture: no composer");
+    return;
+  }
 
   const prompt = brainStripPreviousInjection(adapter.getPromptText(composer)).trim();
-  if (!prompt || prompt.length < 20) return; // skip very short prompts
+  if (!prompt || prompt.length < 20) {
+    console.log("[brain] capture skipped — prompt too short", { length: prompt.length });
+    return;
+  }
 
   const site = adapter.siteName || "unknown";
   const content = `[SOURCE:${site}] User prompt:\n${prompt}`;
+
+  console.log(`[brain] storing ${prompt.length} chars from ${site}`);
 
   let resp;
   try {
@@ -210,19 +231,20 @@ async function brainCaptureAndStore(adapter) {
       payload: {
         content,
         memoryType: "episodic",
-        sourceTrust: 0.7, // auto-captured prompts are lower trust than manual stores
+        sourceTrust: 0.7,
         metadata: { source: site, chat_url: location.href, kind: "user_prompt" },
       },
     });
-  } catch (_err) {
+  } catch (err) {
+    console.log("[brain] store sendMessage failed", err);
     return;
   }
+
+  console.log("[brain] store response", resp);
 
   if (resp && resp.ok) {
     brainFlashSavedDot();
   }
-  // sensitive-content-filtered and API errors are silent — we don't want to alarm users
-  // mid-chat. They can check the popup for a status screen later.
 }
 
 function brainFlashSavedDot() {
@@ -246,16 +268,24 @@ function brainFlashSavedDot() {
 }
 
 function brainObserveSubmits(adapter) {
+  console.log(`[brain] observer mounted for ${adapter.siteName || "unknown"}`);
+
   // Enter-without-Shift while focused inside the composer
   document.addEventListener(
     "keydown",
     (e) => {
       if (e.key !== "Enter" || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
       const composer = adapter.findComposer();
-      if (!composer) return;
+      if (!composer) {
+        console.log("[brain] Enter hit but no composer found");
+        return;
+      }
       const active = document.activeElement;
-      if (active !== composer && !composer.contains(active)) return;
-      // Let the site's own submit handler run, but capture shortly after
+      if (active !== composer && !composer.contains(active)) {
+        console.log("[brain] Enter hit but active element is outside composer", { active, composer });
+        return;
+      }
+      console.log("[brain] Enter hit in composer — will capture in 50ms");
       setTimeout(() => brainCaptureAndStore(adapter), 50);
     },
     true,
@@ -266,6 +296,7 @@ function brainObserveSubmits(adapter) {
     "click",
     (e) => {
       if (!brainIsSubmitLikeButton(e.target)) return;
+      console.log("[brain] submit-like button clicked — will capture in 50ms");
       setTimeout(() => brainCaptureAndStore(adapter), 50);
     },
     true,
