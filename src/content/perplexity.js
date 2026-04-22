@@ -1,13 +1,13 @@
-// Brain content script for ChatGPT (chat.openai.com + chatgpt.com).
+// Brain content script for Perplexity (www.perplexity.ai).
 
 (() => {
   const adapter = {
     findComposer() {
       return (
-        document.querySelector("textarea#prompt-textarea") ||
-        document.querySelector("textarea[data-id]") ||
-        document.querySelector('div#prompt-textarea[contenteditable="true"]') ||
-        document.querySelector('div[contenteditable="true"][data-id]')
+        document.querySelector('textarea[placeholder*="Ask"]') ||
+        document.querySelector('textarea[placeholder*="follow-up"]') ||
+        document.querySelector("main textarea") ||
+        document.querySelector('div[contenteditable="true"]')
       );
     },
     getPromptText(composer) {
