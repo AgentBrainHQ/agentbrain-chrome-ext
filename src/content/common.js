@@ -180,43 +180,24 @@ function brainIsSubmitLikeButton(el) {
 
 async function brainCaptureAndStore(adapter, capturedText) {
   const now = Date.now();
-  if (now - brainLastCaptureAt < BRAIN_CAPTURE_COOLDOWN_MS) {
-    console.log("[brain] capture skipped — cooldown");
-    return;
-  }
+  if (now - brainLastCaptureAt < BRAIN_CAPTURE_COOLDOWN_MS) return;
   brainLastCaptureAt = now;
 
   const prompt = brainStripPreviousInjection(capturedText || "").trim();
-  if (!prompt || prompt.length < 20) {
-    console.log("[brain] capture skipped — prompt too short", { length: prompt.length });
-    return;
-  }
+  if (!prompt || prompt.length < 20) return;
 
   let cfgResp;
   try {
     cfgResp = await chrome.runtime.sendMessage({ type: "brain_config_get" });
-  } catch (err) {
-    console.log("[brain] cfg fetch failed", err);
+  } catch (_err) {
     return;
   }
-  if (!cfgResp || !cfgResp.ok) {
-    console.log("[brain] cfg fetch not-ok", cfgResp);
-    return;
-  }
+  if (!cfgResp || !cfgResp.ok) return;
   const cfg = cfgResp.data || {};
-  if (!cfg.autoSave) {
-    console.log("[brain] auto-save disabled in options");
-    return;
-  }
-  if (!cfg.apiKey || !cfg.workspaceId) {
-    console.log("[brain] missing apiKey or workspaceId");
-    return;
-  }
+  if (!cfg.autoSave || !cfg.apiKey || !cfg.workspaceId) return;
 
   const site = adapter.siteName || "unknown";
   const content = `[SOURCE:${site}] User prompt:\n${prompt}`;
-
-  console.log(`[brain] storing ${prompt.length} chars from ${site}`);
 
   let resp;
   try {
@@ -229,12 +210,9 @@ async function brainCaptureAndStore(adapter, capturedText) {
         metadata: { source: site, chat_url: location.href, kind: "user_prompt" },
       },
     });
-  } catch (err) {
-    console.log("[brain] store sendMessage failed", err);
+  } catch (_err) {
     return;
   }
-
-  console.log("[brain] store response", resp);
 
   if (resp && resp.ok) {
     brainFlashSavedDot();
@@ -262,11 +240,8 @@ function brainFlashSavedDot() {
 }
 
 function brainObserveSubmits(adapter) {
-  console.log(`[brain] observer mounted for ${adapter.siteName || "unknown"}`);
-
-  // Enter-without-Shift while focused inside the composer.
-  // We must capture the prompt text SYNCHRONOUSLY here, because the host app
-  // (e.g. ChatGPT) clears the composer within the same tick as the submit.
+  // Capture the prompt text SYNCHRONOUSLY on Enter / Send-click, because
+  // host apps (ChatGPT etc.) clear the composer within the same tick.
   document.addEventListener(
     "keydown",
     (e) => {
@@ -275,23 +250,18 @@ function brainObserveSubmits(adapter) {
       if (!composer) return;
       const active = document.activeElement;
       if (active !== composer && !composer.contains(active)) return;
-      const capturedText = adapter.getPromptText(composer);
-      console.log("[brain] Enter hit — captured", capturedText.length, "chars");
-      brainCaptureAndStore(adapter, capturedText);
+      brainCaptureAndStore(adapter, adapter.getPromptText(composer));
     },
     true,
   );
 
-  // Send-button click anywhere in the page.
   document.addEventListener(
     "click",
     (e) => {
       if (!brainIsSubmitLikeButton(e.target)) return;
       const composer = adapter.findComposer();
       if (!composer) return;
-      const capturedText = adapter.getPromptText(composer);
-      console.log("[brain] submit click — captured", capturedText.length, "chars");
-      brainCaptureAndStore(adapter, capturedText);
+      brainCaptureAndStore(adapter, adapter.getPromptText(composer));
     },
     true,
   );
