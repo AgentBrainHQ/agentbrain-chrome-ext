@@ -199,6 +199,11 @@ async function brainCaptureAndStore(adapter, capturedText) {
   const site = adapter.siteName || "unknown";
   const content = `[SOURCE:${site}] User prompt:\n${prompt}`;
 
+  // Optimistic UI: flash confirmation now. Brain API can take 10+ seconds to
+  // respond, by which time the user has moved on and any feedback is useless.
+  brainFlashSavedDot();
+  brainFlashButtonLabel("🧠 ✓ saved");
+
   let resp;
   try {
     resp = await chrome.runtime.sendMessage({
@@ -211,11 +216,15 @@ async function brainCaptureAndStore(adapter, capturedText) {
       },
     });
   } catch (_err) {
+    brainFlashButtonLabel("🧠 save error");
     return;
   }
 
-  if (resp && resp.ok) {
-    brainFlashSavedDot();
+  if (!resp || !resp.ok) {
+    const label = resp && resp.error === "sensitive-content-filtered"
+      ? "🧠 skipped (sensitive)"
+      : "🧠 save error";
+    brainFlashButtonLabel(label);
   }
 }
 
@@ -228,15 +237,33 @@ function brainFlashSavedDot() {
     dot.id = "agentbrain-saved-dot";
     dot.title = "Saved to Brain";
     dot.style.cssText =
-      "display:inline-block;width:6px;height:6px;border-radius:50%;background:#22c55e;margin-left:6px;vertical-align:middle;transition:opacity 1.5s ease;opacity:0;";
+      "display:inline-block;width:10px;height:10px;border-radius:50%;background:#22c55e;margin-left:6px;vertical-align:middle;transition:opacity 2.5s ease;opacity:0;box-shadow:0 0 6px #22c55e;";
     btn.appendChild(dot);
   }
-  // Force layout flush, then flash
   void dot.offsetWidth;
   dot.style.opacity = "1";
   setTimeout(() => {
     dot.style.opacity = "0";
-  }, 1500);
+  }, 2500);
+}
+
+let brainLabelFlashTimer = null;
+function brainFlashButtonLabel(label) {
+  const btn = document.getElementById(BRAIN_BUTTON_ID);
+  if (!btn) return;
+  btn.textContent = label;
+  // Re-append the dot if it was flushed by textContent reset
+  const dot = document.getElementById("agentbrain-saved-dot");
+  if (dot) btn.appendChild(dot);
+  if (brainLabelFlashTimer) clearTimeout(brainLabelFlashTimer);
+  brainLabelFlashTimer = setTimeout(() => {
+    const b = document.getElementById(BRAIN_BUTTON_ID);
+    if (b) {
+      b.textContent = "🧠 Brain";
+      const d = document.getElementById("agentbrain-saved-dot");
+      if (d) b.appendChild(d);
+    }
+  }, 2500);
 }
 
 function brainObserveSubmits(adapter) {
